@@ -174,39 +174,76 @@ public class MainActivity extends Activity {
                 JSONObject job = arr.getJSONObject(i);
                 int id = job.getInt("id");
                 String text = job.getString("text");
-                printText(text + "\n\n\n");
-                httpPost(BASE_URL + "/api/print_job_done/" + id);
-                log("Gedruckt Job #" + id);
+                boolean ok = printText(text + "\n\n\n");
+              
+                if (ok) {
+                    httpPost(BASE_URL + "/api/print_job_done/" + id);
+                    log("Gedruckt Job #" + id);
+                } else {
+                    log("Job NICHT als gedruckt markiert: #" + id);
+                }
             }
         } catch (Exception e) {
             log("Polling Fehler: " + e.getMessage());
         }
     }
 
-    private void printText(String text) {
+    private boolean printText(String text) {
         BluetoothSocket socket = null;
+        OutputStream out = null;
+    
         try {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+    
+            if (adapter.isDiscovering()) {
+                adapter.cancelDiscovery();
+                Thread.sleep(500);
+            }
+    
             BluetoothDevice device = adapter.getRemoteDevice(selectedMac);
-
+    
             socket = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID);
             socket.connect();
-            OutputStream out = socket.getOutputStream();
-
-            byte[] init = new byte[]{0x1B, 0x40};
-            byte[] cp = new byte[]{0x1B, 0x74, 0x10}; // CP850 bei vielen ESC/POS
-            byte[] sizeNormal = new byte[]{0x1D, 0x21, 0x00};
-
-            out.write(init);
-            out.write(cp);
-            out.write(sizeNormal);
-            out.write(text.replace("€", "EUR").getBytes(Charset.forName("CP850")));
-            out.write(new byte[]{0x0A,0x0A,0x0A});
+    
+            out = socket.getOutputStream();
+    
+            String safe = text
+                    .replace("€", "EUR")
+                    .replace("ä", "ae")
+                    .replace("ö", "oe")
+                    .replace("ü", "ue")
+                    .replace("Ä", "Ae")
+                    .replace("Ö", "Oe")
+                    .replace("Ü", "Ue")
+                    .replace("ß", "ss");
+    
+            out.write(new byte[]{0x1B, 0x40});
+            out.write(new byte[]{0x1B, 0x74, 0x10});
+            out.write(safe.getBytes(Charset.forName("US-ASCII")));
+            out.write(new byte[]{0x0A, 0x0A, 0x0A, 0x0A});
             out.flush();
-            socket.close();
+    
+            Thread.sleep(800);
+    
+            log("Druck erfolgreich / Zeichen: " + text.length());
+            return true;
+    
         } catch (Exception e) {
             log("Druckfehler: " + e.getMessage());
-            try { if (socket != null) socket.close(); } catch(Exception ignored) {}
+            return false;
+    
+        } finally {
+            try {
+                if (out != null) out.close();
+            } catch (Exception ignored) {}
+    
+            try {
+                if (socket != null) socket.close();
+            } catch (Exception ignored) {}
+    
+            try {
+                Thread.sleep(700);
+            } catch (Exception ignored) {}
         }
     }
 
