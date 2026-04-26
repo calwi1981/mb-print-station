@@ -90,7 +90,11 @@ public class MainActivity extends Activity {
         loadPrinters();
 
         refreshButton.setOnClickListener(v -> loadPrinters());
-        testButton.setOnClickListener(v -> new Thread(() -> printText("        TESTBON\n------------------------------\nMB Print Station\nGOOJPRT 58mm\n------------------------------\n\n\n")).start());
+        testButton.setOnClickListener(v -> {
+            log("Testbon Button gedrückt.");
+            Toast.makeText(this, "Testbon wird gesendet...", Toast.LENGTH_SHORT).show();
+            new Thread(() -> printText("        TESTBON\n------------------------------\nMB Print Station\nGOOJPRT 58mm\n------------------------------\n\n\n")).start();   
+        });
         startButton.setOnClickListener(v -> startPolling());
         stopButton.setOnClickListener(v -> stopPolling());
 
@@ -185,7 +189,7 @@ public class MainActivity extends Activity {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
             BluetoothDevice device = adapter.getRemoteDevice(selectedMac);
 
-            socket = device.createRfcommSocketToServiceRecord(SPP_UUID);
+            socket = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID);
             socket.connect();
             OutputStream out = socket.getOutputStream();
 
