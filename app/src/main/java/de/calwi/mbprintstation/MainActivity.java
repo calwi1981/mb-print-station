@@ -32,16 +32,27 @@ public class MainActivity extends Activity {
     private Button startButton, stopButton, testButton, refreshButton;
     private Handler handler = new Handler(Looper.getMainLooper());
     private boolean running = false;
+    private boolean pollingNow = false;
     private ArrayList<BluetoothDevice> devices = new ArrayList<>();
     private String selectedMac = "";
     private SharedPreferences prefs;
 
     private final Runnable poller = new Runnable() {
         @Override public void run() {
-            if (running) {
-                new Thread(() -> pollPrintJobs()).start();
-                handler.postDelayed(this, 2500);
+            if (!running) return;
+
+            if (!pollingNow) {
+                pollingNow = true;
+                new Thread(() -> {
+                    try {
+                        pollPrintJobs();
+                    } finally {
+                        pollingNow = false;
+                    }
+                }).start();
             }
+
+            handler.postDelayed(this, 4000);
         }
     };
 
@@ -151,11 +162,18 @@ public class MainActivity extends Activity {
     }
 
     private void startPolling() {
+        if (running) {
+            log("Auto-Druck läuft bereits.");
+            return;
+        }
+
         if (selectedMac == null || selectedMac.isEmpty()) {
             log("Bitte zuerst Drucker auswählen.");
             return;
         }
+
         running = true;
+        pollingNow = false;
         log("Auto-Druck gestartet.");
         handler.post(poller);
     }
@@ -194,7 +212,8 @@ public class MainActivity extends Activity {
     private boolean printText(String text) {
         BluetoothSocket socket = null;
         OutputStream out = null;
-    
+        boolean dataSent = false;
+            
         try {
             BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
     
@@ -225,6 +244,7 @@ public class MainActivity extends Activity {
             out.write(safe.getBytes(Charset.forName("US-ASCII")));
             out.write(new byte[]{0x0A, 0x0A, 0x0A, 0x0A});
             out.flush();
+            dataSent = true;
 
             log("Daten an Drucker gesendet / Zeichen: " + text.length());
 
@@ -232,7 +252,7 @@ public class MainActivity extends Activity {
                 Thread.sleep(1200);
             } catch (Exception ignored) {}
 
-            return true;
+            return dataSent;
     
         } catch (Exception e) {
             log("Druckfehler: " + e.getMessage());
