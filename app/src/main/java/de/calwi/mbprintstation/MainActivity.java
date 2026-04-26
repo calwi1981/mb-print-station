@@ -225,10 +225,13 @@ public class MainActivity extends Activity {
             out.write(safe.getBytes(Charset.forName("US-ASCII")));
             out.write(new byte[]{0x0A, 0x0A, 0x0A, 0x0A});
             out.flush();
-    
-            Thread.sleep(800);
-    
-            log("Druck erfolgreich / Zeichen: " + text.length());
+
+            log("Daten an Drucker gesendet / Zeichen: " + text.length());
+
+            try {
+                Thread.sleep(1200);
+            } catch (Exception ignored) {}
+
             return true;
     
         } catch (Exception e) {
@@ -237,7 +240,7 @@ public class MainActivity extends Activity {
     
         } finally {
             try {
-                if (out != null) out.close();
+                if (out != null) out.flush();
             } catch (Exception ignored) {}
     
             try {
